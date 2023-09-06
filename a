@@ -1,0 +1,122 @@
+import scala.reflect.runtime.universe._
+
+
+trait JobConfig {
+  def jobName: String
+}
+
+case class ConfigA(
+                    inputA: String,
+                    outputA: String,
+                    flagA: Boolean = false
+                  ) extends JobConfig {
+  override val jobName: String = "JobA"
+}
+
+case class ConfigB(
+                    inputB: String,
+                    outputB: String,
+                    thresholdB: Double = 0.0
+                  ) extends JobConfig {
+  override val jobName: String = "JobB"
+}
+
+case class ConfigC(
+                    inputC: String,
+                    outputC: String,
+                    maxRetriesC: Int = 3,
+                    batchSizeC: Int = 100
+                  ) extends JobConfig {
+  override val jobName: String = "JobC"
+}
+
+object ConfigParser {
+  def parseArgs[T <: JobConfig](args: Array[String], jobName: String)(implicit tt: TypeTag[T], config: T): Option[T] = {
+    val parser = new scopt.OptionParser[T](jobName) {
+      tt.tpe match {
+        case t if t =:= typeOf[ConfigA] =>
+          opt[String]("inputA").required().action((x, c) => {
+            val a = c.asInstanceOf[ConfigA].copy(inputA = x)
+            a.asInstanceOf[T]
+          })
+          opt[String]("outputA").required().action((x, c) => c.asInstanceOf[ConfigA].copy(outputA = x).asInstanceOf[T])
+          opt[Boolean]("flagA").action((x, c) => c.asInstanceOf[ConfigA].copy(flagA = x).asInstanceOf[T])
+        case t if t =:= typeOf[ConfigB] =>
+          opt[String]("inputB").required().action((x, c) => c.asInstanceOf[ConfigB].copy(inputB = x).asInstanceOf[T])
+          opt[String]("outputB").required().action((x, c) => c.asInstanceOf[ConfigB].copy(outputB = x).asInstanceOf[T])
+          opt[Double]("thresholdB").required().action((x, c) => c.asInstanceOf[ConfigB].copy(thresholdB = x).asInstanceOf[T])
+        case t if t =:= typeOf[ConfigC] =>
+          opt[String]("inputC").required().action((x, c) => c.asInstanceOf[ConfigC].copy(inputC = x).asInstanceOf[T])
+          opt[String]("outputC").required().action((x, c) => c.asInstanceOf[ConfigC].copy(outputC = x).asInstanceOf[T])
+          opt[Int]("maxRetriesC").required().action((x, c) => c.asInstanceOf[ConfigC].copy(maxRetriesC = x).asInstanceOf[T])
+          opt[Int]("batchSizeC").required().action((x, c) => c.asInstanceOf[ConfigC].copy(batchSizeC = x).asInstanceOf[T])
+        case _ =>
+        // Default case for other configurations
+      }
+    }
+
+    parser.parse(args, config)
+  }
+}
+object ConfigInstances {
+  implicit val configA: ConfigA = ConfigA("", "", false)
+  implicit val configB: ConfigB = ConfigB("", "")
+  implicit val configC: ConfigC = ConfigC("", "")
+  implicit val configATypeTag: TypeTag[ConfigA] = implicitly[TypeTag[ConfigA]]
+  implicit val configBTypeTag: TypeTag[ConfigB] = implicitly[TypeTag[ConfigB]]
+  implicit val configCTypeTag: TypeTag[ConfigC] = implicitly[TypeTag[ConfigC]]
+}
+
+object JobA {
+  implicit val configATypeTag: TypeTag[ConfigA] = implicitly[TypeTag[ConfigA]]
+
+  def main(args: Array[String]): Unit = {
+    import ConfigInstances._
+    ConfigParser.parseArgs[ConfigA](args, "JobA") match {
+      case Some(config) =>
+        println(s"Job A Configuration:")
+        println(s"InputA: ${config.inputA}")
+        println(s"OutputA: ${config.outputA}")
+        println(s"FlagA: ${config.flagA}")
+      case None =>
+        println("Invalid arguments")
+    }
+  }
+}
+
+object JobB {
+  import ConfigInstances._
+  implicit val configBTypeTag: TypeTag[ConfigB] = implicitly[TypeTag[ConfigB]]
+
+  def main(args: Array[String]): Unit = {
+
+    ConfigParser.parseArgs[ConfigB](args, "JobB") match {
+      case Some(config) =>
+        println(s"Job B Configuration:")
+        println(s"InputB: ${config.inputB}")
+        println(s"OutputB: ${config.outputB}")
+        println(s"ThresholdB: ${config.thresholdB}")
+      case None =>
+        println("Invalid arguments")
+    }
+  }
+}
+
+
+
+object JobC {
+  import ConfigInstances._
+  implicit val configCTypeTag: TypeTag[ConfigC] = implicitly[TypeTag[ConfigC]]
+  def main(args: Array[String]): Unit = {
+    ConfigParser.parseArgs[ConfigC](args, "JobC") match {
+      case Some(config) =>
+        println(s"Job C Configuration:")
+        println(s"InputA: ${config.inputC}")
+        println(s"OutputA: ${config.outputC}")
+        println(s"MaxRetriesC: ${config.maxRetriesC}")
+        println(s"BatchSizeC: ${config.batchSizeC}")
+      case None =>
+        println("Invalid arguments")
+    }
+  }
+}
